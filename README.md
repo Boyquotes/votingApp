@@ -4,7 +4,8 @@ Utilisation des smart contract depuis Godot
 
 # Videos:
 DApp:    
-http://linux-live-cd.org/voting/2021-11-30%2008-49-36.mkv
+http://linux-live-cd.org/voting/2021-11-30%2008-49-36.mkv    
+
 Documentation visible depuis la DApp en iframe:   
 http://linux-live-cd.org/voting/2021-11-30%2008-39-14.mkv    
 
