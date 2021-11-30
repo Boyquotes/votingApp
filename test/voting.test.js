@@ -1,15 +1,16 @@
 const Voting = artifacts.require("./Voting.sol");
 
 contract("Voting", accounts => {
-  it("...should store the value 89.", async () => {
+  it("...should store the votre and return true.", async () => {
     const votingInstance = await Voting.deployed();
 
     // Set value of 89
-    await votingInstance.set(89, { from: accounts[0] });
+    // await votingInstance.set(89, { from: accounts[0] });
 
     // Get stored value
-    const storedData = await votingInstance.get.call();
+    const storedData = await votingInstance.addVoter.call(accounts[0]);
+    // const storedData = await votingInstance.addVoter.call('0xea43a29460f947c7b41fdd267074e6e42117fa5f');
 
-    assert.equal(storedData, 89, "The value 89 was not stored.");
+    assert.equal(storedData, true, "The voter was not stored.");
   });
 });

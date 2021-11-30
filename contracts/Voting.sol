@@ -3,6 +3,11 @@ pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+/// @title Voting system
+/// @author Nicolas Villa
+/// @notice You can use this contract for a DAO
+/// @dev Development in progress, stay free to modify this contract
+/// @custom:experimental This is an experimental contract for study propose.
 contract Voting is Ownable {
     /**
      * @dev Struct of an Voter
@@ -51,20 +56,22 @@ contract Voting is Ownable {
      * @dev Add a voter with his blockchain address
       * @param _addressVoter of voter
      */
-    function addVoter(address _addressVoter) external onlyOwner{
+    function addVoter(address _addressVoter) external onlyOwner returns(bool){
         require(workflowCurrentStatus == WorkflowStatus.RegisteringVoters, "Not Registering Voters Status is on");        
         require(!voters[_addressVoter].isRegistered, "Voter already registered");
         voters[_addressVoter] = Voter(true, false, 0);
         emit VoterRegistered(_addressVoter);
+        return true;
     }
 
     /**
      * @dev Admin start the proposal process for voters and change the status to ProposalsRegistrationStarted
      */
-    function startProposalSession() external onlyOwner{
+    function startProposalSession() external onlyOwner returns(WorkflowStatus){
         require(workflowCurrentStatus == WorkflowStatus.RegisteringVoters, "Not in a Registering Voters Status");
         workflowCurrentStatus = WorkflowStatus.ProposalsRegistrationStarted;
-        emit WorkflowStatusChange(WorkflowStatus.RegisteringVoters, WorkflowStatus.VotingSessionStarted);     
+        emit WorkflowStatusChange(WorkflowStatus.RegisteringVoters, WorkflowStatus.VotingSessionStarted);
+        return workflowCurrentStatus;    
     }
 
     /**
@@ -156,5 +163,4 @@ contract Voting is Ownable {
             proposals[winningProposalId].voteCount
         );
     }
-
 }

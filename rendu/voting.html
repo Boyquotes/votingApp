@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Voting Game</title>
+        <meta charset="UTF-8">
+        <link href="./voting.css" rel="stylesheet" type="text/css" />
+
+		<script src="./web3.min.js"></script>
+		<script src="./contractAddress.js"></script>
+		<script src="./abi.js"></script>
+		<script type="text/javascript">
+			const oldProvider = web3.currentProvider; // keep a reference to metamask provider
+			myWeb3 = new Web3(oldProvider);  // now you can use myWeb3 instead of web3
+			const contractRopsten = new myWeb3.eth.Contract(ABI, contractAddress);
+			
+			async function checkVoter() {
+				var accounts = await myWeb3.eth.getAccounts();
+				var retourObject = await contractRopsten.methods.checkVoter(accounts[0]).call((err, data) => {
+				  console.log(data);
+				});
+				console.log(retourObject);
+				return retourObject;
+			}
+			
+			async function checkStatus(returnStatus) {
+				var retourObjectStatus = await contractRopsten.methods.getWorkflowStatus().call((err, data) => {
+				  console.log(data);
+				});
+				console.log("setValue");
+				console.log(retourObjectStatus);
+				if(!returnStatus){
+					var accounts = await myWeb3.eth.getAccounts();
+					var retourObject = await checkVoter();
+					if(!retourObject && retourObjectStatus == 0){
+						document.getElementById("statusVoting").innerHTML = "Periode d'inscription ouverte. Entrez les adresses dans le champs et validez l'inscription grace a Godette en allant sur 'Ajouter Electeur'";
+					}
+					if(retourObject && retourObjectStatus == 0){
+						document.getElementById("statusVoting").innerHTML = "Vous devez attendre l'ouverture des propositions -> Activer le ci-dessous";
+					}
+					if(retourObject && retourObjectStatus == 1){
+						document.getElementById("statusVoting").innerHTML = "Nous attendons vos propositions -> Entrer la valeur ci-dessous";
+						document.getElementById("propositions").style.display = "block";
+					}
+					if(!retourObject && retourObjectStatus == 1){
+						document.getElementById("statusVoting").innerHTML = "L'inscription sur les listes est terminee (status: "+retourObjectStatus+"). C'est le temps des propositions";
+						document.getElementById("propositions").style.display = "block";
+					}
+					if(!retourObject && retourObjectStatus == 3){
+						document.getElementById("statusVoting").innerHTML = "L'inscription sur les listes est terminee (status: "+retourObjectStatus+"). C'est le temps des votes des electeurs, passer electeurs pour voter";
+						document.getElementById("propositions").style.display = "block";
+					}
+					if(retourObject && retourObjectStatus == 2){
+						document.getElementById("statusVoting").innerHTML = "Voter pour une proposition ci-dessous";
+					}
+				}
+				else{
+					return retourObjectStatus;
+				}
+				
+			}
+
+			checkStatus(false);
+
+			async function addVoter() {
+				var retourStatus = await checkStatus(true);
+				console.log(retourStatus);
+				console.log(retourStatus);
+				console.log(document.getElementById("voter").value);
+				if(retourStatus == 0){
+					var accounts = await myWeb3.eth.getAccounts();
+					try {
+						var retourObject = await contractRopsten.methods.addVoter(document.getElementById("voter").value).send({ from: accounts[0] });
+					} catch (err) {
+						console.log(err);
+					}
+					//let valueEvent = retourObject.events.isSet.returnValues.value;
+					//console.log(valueEvent);
+					console.log(retourObject);
+					document.getElementById("statusVoting").innerHTML = "Cette adresse "+document.getElementById("voter").value+" est maintenant inscrit sur la liste";
+					document.getElementById("retour").innerHTML = "Une fois toutes les votants ajoutes, declenchez la session des propositions en appuyant avec Godette sur 'Ouverture des propositions'";
+				}
+				else{
+					document.getElementById("retour").innerHTML = "Pas le bon moment";
+					document.getElementById("retour").style.color = 'red';
+				}
+			}
+			
+			async function startProposal() {
+				var accounts = await myWeb3.eth.getAccounts();
+				var retourStatus = await checkStatus(true);
+				console.log(retourStatus);
+				if(retourStatus == 0){
+					var retourObject = await contractRopsten.methods.startProposalsRegistering().send({ from: accounts[0] });
+					var retourStatus = await checkStatus(true);
+					//~ console.log(retourStatus);
+					//~ let valueEvent = retourObject.events.isSet.returnValues.value;
+					document.getElementById("statusVoting").innerHTML = "La session de propositions est ouverte !";
+					document.getElementById("retour").innerHTML = "Vous pouvez maintenant proposer des idees grace aux champs ci-dessous";
+					document.getElementById("propositions").style.display = "block";
+				}
+				else{
+					document.getElementById("retour").innerHTML = "Pas le bon moment pour faire cette action!";
+					document.getElementById("retour").style.color = 'red';
+				}
+			}
+			
+			async function addProposal() {
+				var accounts = await myWeb3.eth.getAccounts();
+				var retourObject = await checkVoter();
+				if(retourObject){
+					try {
+						var retourObject = await contractRopsten.methods.addProposal(document.getElementById("proposition").value).send({ from: accounts[0] });
+						document.getElementById("proposals").innerHTML += document.getElementById("proposition").value;
+					} catch (err) {
+						console.log(err);
+					}
+					//~ let valueEvent = retourObject.events.isSet.returnValues.value;
+					//~ console.log(valueEvent);
+					document.getElementById("statusVoting").innerHTML = "Votre proposition a bien etait prise en compte !";
+					document.getElementById("retour").style.color = 'blue';
+					document.getElementById("retour").innerHTML = "Vous pouvez maintenant proposer d'autres idees grace aux champs ci-dessous ou passer a l'etape des votes";
+				}
+				else{
+					document.getElementById("retour").innerHTML = "Vous ne pouvez pas participer, vous n'etes pas inscrit! Vous etes l'elu peut etre ? prendre un compte electeur serait mieux!";
+					document.getElementById("retour").style.color = 'red';
+				}
+			}
+			
+			async function startVoting() {
+				var accounts = await myWeb3.eth.getAccounts();
+				var retourObject = await checkVoter();
+				var retourStatus = await checkStatus(true);
+				console.log(retourStatus);
+				if(!retourObject && retourStatus == 1){
+					try {
+						var retourObject = await contractRopsten.methods.endProposalsRegistering().send({ from: accounts[0] });
+					} catch (err) {
+						console.log(err);
+					}
+					try {
+						var retourObject = await contractRopsten.methods.startVotingSession().send({ from: accounts[0] });
+					} catch (err) {
+						console.log(err);
+					}
+					document.getElementById("statusVoting").innerHTML = "Les votes peuvent commencer !";
+					document.getElementById("retour").innerHTML = "Revenez avec un compte electeur, selectionner un choix dans la liste ci-desssous";
+					document.getElementById("proposals").style.display = "block";
+				}
+				else{
+					document.getElementById("retour").innerHTML = "Pas le bon moment ou vous ne pouvez pas participer car vous etes peut etre que simple electeur ? prendre un compte admin serait mieux!";
+					document.getElementById("retour").style.color = 'red';
+				}
+			}
+			
+			async function setVote(proposalId) {
+				var accounts = await myWeb3.eth.getAccounts();
+				var retourObject = await checkVoter();
+				if(retourObject){
+					try {
+						var retourObject = await contractRopsten.methods.setVote(proposalId).send({ from: accounts[0] });
+					} catch (err) {
+						console.log(err);
+					}
+					//~ let valueEvent = retourObject.events.isSet.returnValues.value;
+					//~ console.log(valueEvent);
+					document.getElementById("statusVoting").innerHTML = "Votre vote a bien etait prise en compte !";
+				}
+				else{
+					document.getElementById("retour").innerHTML = "Vous ne pouvez pas participer, vous n'etes pas inscrit! Vous etes l'elu peut etre ? prendre un compte electeur serait mieux!";
+					document.getElementById("retour").style.color = 'red';
+				}
+			}
+
+			async function endVoting() {
+				var accounts = await myWeb3.eth.getAccounts();
+				var retourObject = await checkVoter();
+				var retourStatus = await checkStatus(true);
+				console.log(retourStatus);
+				if(!retourObject && retourStatus == 3){
+					try {
+						var retourObject = await contractRopsten.methods.endVotingSession().send({ from: accounts[0] });
+					} catch (err) {
+						console.log(err);
+					}
+					try {
+						var retourObject = await contractRopsten.methods.tallyVotes().send({ from: accounts[0] });
+					} catch (err) {
+						console.log(err);
+					}
+					document.getElementById("statusVoting").innerHTML = "Les votes sont maintenant clos !";
+					document.getElementById("retour").style.color = 'blue';
+					document.getElementById("retour").innerHTML = "Vous pouvez maintenant cliquer sur 'Voir les resultats' pour voir le gagnant!";
+				}
+				else{
+					document.getElementById("retour").innerHTML = "Pas le bon moment, mettez un terme aux propositions avant ou vous ne pouvez pas faire cette action car vous etes simple electeur peut etre ? prendre un compte ADMIN serait mieux!";
+					document.getElementById("retour").style.color = 'red';
+				}
+			}
+
+			async function tallyVotes() {
+				var accounts = await myWeb3.eth.getAccounts();
+				var retourStatus = await checkStatus(true);
+				console.log(retourStatus);
+				if(retourStatus == 4 || retourStatus == 5){
+					try {
+						var retourObject = await contractRopsten.methods.getWinner().send({ from: accounts[0] });
+					} catch (err) {
+						console.log(err);
+					}
+					console.log(retourObject);
+					document.getElementById("statusVoting").innerHTML = "La proposition gagnante est";
+					document.getElementById("retour").style.color = 'blue';
+					document.getElementById("retour").innerHTML = "Pas eu le temps de recup cette valeur... ;)";
+				}
+				else{
+					document.getElementById("retour").innerHTML = "Pas le bon moment ou vous ne pouvez pas faire cette action car vous etes simple electeur peut etre ? prendre un compte ADMIN serait mieux!";
+					document.getElementById("retour").style.color = 'red';
+				}
+			}
+			
+			function seeDoc() {
+				if(document.getElementById("documentation").style.display == "none"){
+					document.getElementById("documentation").style.display = "block";
+				}
+				else{
+					document.getElementById("documentation").style.display = "none	";
+				}
+			}
+			
+			function initElement()
+			{
+				var v = document.getElementById("addVoter");
+				v.onclick = addVoter;
+				var sp = document.getElementById("startProposal");
+				sp.onclick = startProposal;
+				var p = document.getElementById("addProposal");
+				p.onclick = addProposal;
+				var sv = document.getElementById("startVoting");
+				sv.onclick = startVoting;
+				var d = document.getElementById("seeDocumentation");
+				d.onclick = seeDoc;
+				var endV = document.getElementById("endVoting");
+				endV.onclick = endVoting;
+				var tally = document.getElementById("tallyVotes");
+				tally.onclick = tallyVotes;
+			};
+
+			</script>
+    </head>
+    
+    
+    <body onload="initElement();">
+
+
+		<div id='encart'>
+			<input type="button" id="seeDocumentation" value="Voir la documentation" />
+
+			<div id='statusVoting'></div>
+			<div id='retour'></div>
+			
+			<div id='ajoutVoters'>
+				<input type="text" id='voter' value="0xb35093c32411d58efFf2B7b5b62d6c06bfc60Ee1" style='width:450px'/>
+				<input type="button" id="addVoter" value="Envoyer" />
+			</div>
+			
+			<div id='startProposalSession'>
+				<input type="button" id="startProposal" value="Ouverture proposal" />
+			</div>
+			
+			<div id='propositions'>
+				<input type="text" id='proposition' value="Voyage" />
+				<input type="button" id="addProposal" value="Envoyer" />
+			</div>
+			
+			<div id='startVotingSession'>
+				<input type="button" id="startVoting" value="Fin des propositions et ouverture du bureau de votes (ADMIN)" />
+			</div>
+			
+			<div id='proposals'>
+				<input type="button" onClick="setVote(0)" value="0" />Voyage
+				<input type="button" onClick="setVote(1)" value="1" />Lecture
+			</div>
+			
+			<div id='endVotingSession'>
+				<input type="button" id="endVoting" value="Fin des votes (ADMIN)" />
+			</div>
+			
+			<div id='tally'>
+				<input type="button" id="tallyVotes" value="Voir le resultat (ADMIN)" />
+			</div>
+			
+			<div id="documentation">
+				<iframe src="./iframe.html" width="500px" height="800px" style="right: 0;position: absolute;"></iframe>
+			</div>
+		</div>
+
+		<canvas id='canvas'>
+			HTML5 canvas appears to be unsupported in the current browser.<br />
+			Please try updating or use a different browser.
+		</canvas>
+
+		<div id='status'>
+			<div id='status-progress' style='display: none;' oncontextmenu='event.preventDefault();'><div id ='status-progress-inner'></div></div>
+			<div id='status-indeterminate' style='display: none;' oncontextmenu='event.preventDefault();'>
+				<div></div>
+				<div></div>
+				<div></div>
+				<div></div>
+				<div></div>
+				<div></div>
+				<div></div>
+				<div></div>
+			</div>
+			<div id='status-notice' class='godot' style='display: none;'></div>
+		</div>
+        
+        
+        
+        
+        
+        <script src="voting.js"></script>
+		<script type='text/javascript'>//<![CDATA[
+
+			const GODOT_CONFIG = {"args":[],"canvasResizePolicy":1,"executable":"voting","experimentalVK":false,"fileSizes":{"voting.pck":14352,"voting.wasm":17472981},"focusCanvas":true,"gdnativeLibs":[]};
+			var engine = new Engine(GODOT_CONFIG);
+
+			(function() {
+				const INDETERMINATE_STATUS_STEP_MS = 100;
+				var statusProgress = document.getElementById('status-progress');
+				var statusProgressInner = document.getElementById('status-progress-inner');
+				var statusIndeterminate = document.getElementById('status-indeterminate');
+				var statusNotice = document.getElementById('status-notice');
+
+				var initializing = true;
+				var statusMode = 'hidden';
+
+				var animationCallbacks = [];
+				function animate(time) {
+					animationCallbacks.forEach(callback => callback(time));
+					requestAnimationFrame(animate);
+				}
+				requestAnimationFrame(animate);
+
+				function setStatusMode(mode) {
+
+					if (statusMode === mode || !initializing)
+						return;
+					[statusProgress, statusIndeterminate, statusNotice].forEach(elem => {
+						elem.style.display = 'none';
+					});
+					animationCallbacks = animationCallbacks.filter(function(value) {
+						return (value != animateStatusIndeterminate);
+					});
+					switch (mode) {
+						case 'progress':
+							statusProgress.style.display = 'block';
+							break;
+						case 'indeterminate':
+							statusIndeterminate.style.display = 'block';
+							animationCallbacks.push(animateStatusIndeterminate);
+							break;
+						case 'notice':
+							statusNotice.style.display = 'block';
+							break;
+						case 'hidden':
+							break;
+						default:
+							throw new Error('Invalid status mode');
+					}
+					statusMode = mode;
+				}
+
+				function animateStatusIndeterminate(ms) {
+					var i = Math.floor(ms / INDETERMINATE_STATUS_STEP_MS % 8);
+					if (statusIndeterminate.children[i].style.borderTopColor == '') {
+						Array.prototype.slice.call(statusIndeterminate.children).forEach(child => {
+							child.style.borderTopColor = '';
+						});
+						statusIndeterminate.children[i].style.borderTopColor = '#dfdfdf';
+					}
+				}
+
+				function setStatusNotice(text) {
+					while (statusNotice.lastChild) {
+						statusNotice.removeChild(statusNotice.lastChild);
+					}
+					var lines = text.split('\n');
+					lines.forEach((line) => {
+						statusNotice.appendChild(document.createTextNode(line));
+						statusNotice.appendChild(document.createElement('br'));
+					});
+				};
+
+				function displayFailureNotice(err) {
+					var msg = err.message || err;
+					console.error(msg);
+					setStatusNotice(msg);
+					setStatusMode('notice');
+					initializing = false;
+				};
+
+				if (!Engine.isWebGLAvailable()) {
+					displayFailureNotice('WebGL not available');
+				} else {
+					setStatusMode('indeterminate');
+					engine.startGame({
+						'onProgress': function (current, total) {
+							if (total > 0) {
+								statusProgressInner.style.width = current/total * 100 + '%';
+								setStatusMode('progress');
+								if (current === total) {
+									// wait for progress bar animation
+									setTimeout(() => {
+										setStatusMode('indeterminate');
+									}, 500);
+								}
+							} else {
+								setStatusMode('indeterminate');
+							}
+						},
+					}).then(() => {
+						setStatusMode('hidden');
+						initializing = false;
+					}, displayFailureNotice);
+				}
+			})();
+		//]]></script>
+    </body>
+</html>
+
